@@ -1,3 +1,4 @@
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 import requests
@@ -5,19 +6,33 @@ import requests
 app = Flask(__name__)
 CORS(app)
 
+TOKEN = "EAAAl228vlsrjxfRNJikB76WuOOIEb7rwRgLBhOPa9SagIBsKn634talKqyHX0Ic"
+
+TOKEN = "EAAAl228vlsrjxfRNJikB76WuOOIEb7rwRgLBhOPa9SagIBsKn634talKqyHX0Ic"
+
 @app.route("/")
-def index():
-    return "API Backend de La Capital funcionando"
+def home():
+    return "Backend La Capital del Móvil funcionando"
 
 @app.route("/categorias")
-def categorias():
-    url = "https://connect.squareup.com/v2/catalog/list?types=CATEGORY"
+def obtener_categorias():
     headers = {
-        "Authorization": "Bearer EAAAl228vlsrjxfRNJikB76WuOOIEb7rwRgLBhOPa9SagIBsKn634talKqyHX0Ic",
-        "Content-Type": "application/json"
+        "Square-Version": "2023-12-13",
+        "Authorization": f"Bearer {TOKEN}"
     }
+    url = "https://connect.squareup.com/v2/catalog/list"
     response = requests.get(url, headers=headers)
-    return jsonify(response.json())
+    data = response.json()
+    categorias = []
+    if "objects" in data:
+        for obj in data["objects"]:
+            if obj["type"] == "CATEGORY" and obj.get("category_data", {}).get("category_type") == "REGULAR_CATEGORY":
+                if obj["category_data"].get("is_top_level", False):
+                    categorias.append({
+                        "id": obj["id"],
+                        "name": obj["category_data"]["name"]
+                    })
+    return jsonify(categorias)
 
 @app.route("/categorias/<category_id>")
 def obtener_subcategorias(category_id):
