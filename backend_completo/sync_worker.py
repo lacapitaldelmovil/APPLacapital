@@ -45,10 +45,10 @@ def sync_all_data():
                 if item["item_data"].get("variations"):
                     price = item["item_data"]["variations"][0]["item_variation_data"]["price_money"]["amount"] / 100
 
-                # Datos del producto
+                # Datos del producto usando get() para evitar KeyError en "category_ids"
                 product_data = {
                     "nombre": product_name,
-                    "categoria": item["item_data"]["category_ids"],  # Aquí se pueden guardar las categorías si son relevantes
+                    "categoria": item["item_data"].get("category_ids", []),
                     "precio": price,
                     "modificadores": item["item_data"].get("modifiers", []),
                 }
