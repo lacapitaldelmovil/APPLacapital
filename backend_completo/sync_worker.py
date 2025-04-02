@@ -4,6 +4,7 @@ import requests
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
+# Cargar las variables de entorno
 load_dotenv()
 
 # Variables de entorno
@@ -45,11 +46,11 @@ def sync_all_data():
                 # Guarda el producto en MongoDB
                 collection.insert_one({
                     "nombre": product_name,
-                    "categoria": item["item_data"]["category_ids"],  # Aquí se pueden guardar las categorías si son relevantes
+                    "categoria": item["item_data"].get("category_ids", []),  # Asegúrate de que las categorías sean listas
                     "precio": price,
-                    "modificadores": item["item_data"].get("modifiers", []),
+                    "modificadores": item["item_data"].get("modifiers", []),  # Agrega modificadores si están disponibles
                 })
-
+        
         print("Datos sincronizados con éxito.")
     else:
         print(f"Error al sincronizar datos: {response.status_code} {response.text}")
