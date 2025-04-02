@@ -1,7 +1,7 @@
 Flask
-gunicorn
+flask_cors
 pymongo
 requests
 python-dotenv
 dnspython
-flask_cors
+gunicorn
