@@ -9,10 +9,12 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
+# Cargar variables de entorno
 MONGO_URI = os.environ.get("MONGO_URI")
 DATABASE_NAME = os.environ.get("DATABASE_NAME")
 COLLECTION_NAME = os.environ.get("COLLECTION_NAME")
 
+# Conexión a la base de datos MongoDB
 client = MongoClient(MONGO_URI)
 db = client[DATABASE_NAME]
 collection = db[COLLECTION_NAME]
@@ -21,38 +23,25 @@ collection = db[COLLECTION_NAME]
 def index():
     return "API de La Capital del Móvil"
 
+# Ruta para obtener productos desde la base de datos MongoDB
 @app.route('/productos')
 def get_productos():
     productos = list(collection.find({}, {'_id': 0}))  # Recupera todos los productos sin el campo _id
     return jsonify(productos)
 
+# Ruta para obtener categorías desde la base de datos MongoDB
 @app.route('/categorias')
 def get_categorias():
     # Busca todos los productos y extrae solo el campo 'categoria' para evitar duplicados
     categorias = list(collection.distinct('categoria'))
     return jsonify(categorias)
-import requests
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Ruta para obtener modificadores desde la base de datos MongoDB (si los estás almacenando)
+@app.route('/modificadores')
+def get_modificadores():
+    # Supone que los modificadores se están almacenando en el campo 'modificadores' de cada producto
+    modificadores = list(collection.distinct('modificadores'))
+    return jsonify(modificadores)
 
-SQUARE_ACCESS_TOKEN = os.environ.get("SQUARE_ACCESS_TOKEN")
-
-# Endpoint de la API de Square para obtener productos
-url = "https://connect.squareup.com/v2/catalog/list"
-headers = {
-    "Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}",
-    "Content-Type": "application/json"
-}
-
-response = requests.get(url, headers=headers)
-
-if response.status_code == 200:
-    data = response.json()
-    # Imprimir las categorías de los productos
-    for item in data.get("objects", []):
-        if "categories" in item:
-            print("Categorías del producto:", item["categories"])
-else:
-    print("Error al obtener datos de Square:", response.status_code, response.text)
+if __name__ == '__main__':
+    app.run(debug=True)
