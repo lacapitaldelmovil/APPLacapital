@@ -1,9 +1,10 @@
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 import requests
 
 app = Flask(__name__)
-CORS(app)  # Permite llamadas desde cualquier origen
+CORS(app)
 
 SQUARE_TOKEN = "EAAAl228vlsrjxfRNJikB76WuOOIEb7rwRgLBhOPa9SagIBsKn634talKqyHX0Ic"
 HEADERS = {
@@ -25,9 +26,7 @@ def get_categorias():
 @app.route("/api/productos/<categoria_id>")
 def get_productos(categoria_id):
     url = "https://connect.squareup.com/v2/catalog/search-catalog-items"
-    payload = {
-        "category_ids": [categoria_id]
-    }
+    payload = {"category_ids": [categoria_id]}
     response = requests.post(url, json=payload, headers=HEADERS)
     data = response.json()
     productos = [
@@ -38,7 +37,6 @@ def get_productos(categoria_id):
 
 @app.route("/api/modificadores/<producto_id>")
 def get_modificadores(producto_id):
-    # Obtener el producto completo
     url_obj = f"https://connect.squareup.com/v2/catalog/object/{producto_id}"
     res = requests.get(url_obj, headers=HEADERS)
     item = res.json().get("object", {})
