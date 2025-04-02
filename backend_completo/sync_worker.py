@@ -49,17 +49,20 @@ def sync_all_data():
                     # Verificamos si existe "price_money" y que tenga la clave "amount"
                     if "price_money" in variation_data and "amount" in variation_data["price_money"]:
                         price = variation_data["price_money"]["amount"] / 100
+                
+                category_ids = item["item_data"].get("category_ids", [])
+                modifiers = item["item_data"].get("modifiers", [])
 
-                # Datos del producto, usando get() para claves opcionales
+                # Imprime los valores para verificar
+                print(f"Nombre: {product_name}, Categorías: {category_ids}, Modificadores: {modifiers}, Precio: {price}")
+
+                # Datos del producto
                 product_data = {
                     "nombre": product_name,
-                    "categoria": item["item_data"].get("category_ids", []),
+                    "categoria": category_ids,
                     "precio": price,
-                    "modificadores": item["item_data"].get("modifiers", []),
+                    "modificadores": modifiers,
                 }
-
-                # Imprime los datos antes de insertar
-                print(f"Producto a insertar: {product_data}")
 
                 # Inserta el producto en MongoDB
                 collection.insert_one(product_data)
