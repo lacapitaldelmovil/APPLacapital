@@ -1,59 +1,63 @@
+
 from flask import Flask, jsonify
 from flask_cors import CORS
+from pymongo import MongoClient
 import requests
+import threading
+import time
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-TOKEN = "EAAAl228vlsrjxfRNJikB76WuOOIEb7rwRgLBhOPa9SagIBsKn634talKqyHX0Ic"
+# MongoDB
+MONGO_URI = "mongodb+srv://pauetsc:<Mikasalas2>@cluster0.hbaxsgc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+client = MongoClient(MONGO_URI)
+db = client["lacapital"]
+productos_collection = db["productos"]
 
-@app.route("/")
-def inicio():
-    return "API La Capital OK"
+# Square API
+SQUARE_TOKEN = "EAAAl228vlsrjxfRNJikB76WuOOIEb7rwRgLBhOPa9SagIBsKn634talKqyHX0Ic"
+HEADERS = {
+    "Authorization": f"Bearer {SQUARE_TOKEN}",
+    "Content-Type": "application/json"
+}
 
-@app.route("/categorias")
-def obtener_categorias():
-    url = "https://connect.squareup.com/v2/catalog/list"
-    headers = {
-        "Square-Version": "2023-12-13",
-        "Authorization": f"Bearer {TOKEN}"
-    }
-    response = requests.get(url, headers=headers)
-    data = response.json()
-    categorias = [obj for obj in data.get("objects", []) if obj["type"] == "CATEGORY"]
-    return jsonify(categorias)
+LOCATION_ID = "LNEX7GDDE1RGF"
 
-@app.route("/productos/<category_id>")
-def obtener_productos_por_categoria(category_id):
-    headers = {
-        "Square-Version": "2023-12-13",
-        "Authorization": f"Bearer {TOKEN}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "object_types": ["ITEM"],
-        "query": {
-            "prefix_query": {
-                "attribute_name": "category_id",
-                "attribute_prefix": category_id
-            }
-        }
-    }
-    url = "https://connect.squareup.com/v2/catalog/search"
-    response = requests.post(url, headers=headers, json=data)
-    items = []
-
-    if response.ok:
+def fetch_productos():
+    url = f"https://connect.squareup.com/v2/catalog/list?types=ITEM"
+    response = requests.get(url, headers=HEADERS)
+    if response.status_code == 200:
         data = response.json()
-        for obj in data.get("objects", []):
-            item_data = obj["item_data"]
-            item = {
-                "id": obj["id"],
-                "name": item_data["name"],
+        items = data.get("objects", [])
+        result = []
+        for item in items:
+            item_data = item.get("item_data", {})
+            image_url = item_data.get("image_url")
+            product = {
+                "id": item["id"],
+                "name": item_data.get("name"),
                 "variations": item_data.get("variations", []),
-                "image_url": f"https://connect.squareup.com/v2/catalog/images/{item_data.get('image_id')}" if item_data.get("image_id") else None,
-                "modifiers": item_data.get("modifier_list_info", [])
+                "modifiers": item_data.get("modifier_list_info", []),
+                "image_url": image_url,
             }
-            items.append(item)
+            result.append(product)
+        productos_collection.delete_many({})
+        productos_collection.insert_many(result)
+    else:
+        print("Error al obtener productos de Square:", response.status_code)
 
-    return jsonify(items)
+def sync_loop():
+    while True:
+        fetch_productos()
+        time.sleep(3600)  # Cada hora
+
+@app.route("/productos", methods=["GET"])
+def get_productos():
+    productos = list(productos_collection.find({}, {"_id": 0}))
+    return jsonify(productos)
+
+if __name__ == "__main__":
+    threading.Thread(target=sync_loop, daemon=True).start()
+    app.run(host="0.0.0.0", port=5000)
