@@ -1,14 +1,17 @@
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
 import requests
+import threading
+import time
 import os
 
 app = Flask(__name__)
 CORS(app)
 
 # MongoDB
-MONGO_URI = "mongodb+srv://pauetsc:Mikasalas2@cluster0.hbaxsgc.mongodb.net/lacapital?retryWrites=true&w=majority"
+MONGO_URI = "mongodb+srv://pauetsc:<Mikasalas2>@cluster0.hbaxsgc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(MONGO_URI)
 db = client["lacapital"]
 productos_collection = db["productos"]
@@ -20,22 +23,35 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-@app.route("/sync", methods=["GET"])
-def sync_all_data():
-    print("🔄 Sincronizando productos desde Square...")
-    url = "https://connect.squareup.com/v2/catalog/list?types=ITEM"
+LOCATION_ID = "LNEX7GDDE1RGF"
+
+def fetch_productos():
+    url = f"https://connect.squareup.com/v2/catalog/list?types=ITEM"
     response = requests.get(url, headers=HEADERS)
-    if response.status_code != 200:
-        return jsonify({"error": "Error al obtener productos"}), 500
+    if response.status_code == 200:
+        data = response.json()
+        items = data.get("objects", [])
+        result = []
+        for item in items:
+            item_data = item.get("item_data", {})
+            image_url = item_data.get("image_url")
+            product = {
+                "id": item["id"],
+                "name": item_data.get("name"),
+                "variations": item_data.get("variations", []),
+                "modifiers": item_data.get("modifier_list_info", []),
+                "image_url": image_url,
+            }
+            result.append(product)
+        productos_collection.delete_many({})
+        productos_collection.insert_many(result)
+    else:
+        print("Error al obtener productos de Square:", response.status_code)
 
-    data = response.json()
-    items = data.get("objects", [])
-
-    productos_collection.delete_many({})
-    for item in items:
-        productos_collection.insert_one(item)
-
-    return jsonify({"message": f"{len(items)} productos sincronizados."})
+def sync_loop():
+    while True:
+        fetch_productos()
+        time.sleep(3600)  # Cada hora
 
 @app.route("/productos", methods=["GET"])
 def get_productos():
@@ -43,4 +59,5 @@ def get_productos():
     return jsonify(productos)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    threading.Thread(target=sync_loop, daemon=True).start()
+    app.run(host="0.0.0.0", port=5000)
