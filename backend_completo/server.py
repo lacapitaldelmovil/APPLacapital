@@ -23,5 +23,11 @@ def index():
 
 @app.route('/productos')
 def get_productos():
-    productos = list(collection.find({}, {'_id': 0}))
+    productos = list(collection.find({}, {'_id': 0}))  # Recupera todos los productos sin el campo _id
     return jsonify(productos)
+
+@app.route('/categorias')
+def get_categorias():
+    # Busca todos los productos y extrae solo el campo 'categoria' para evitar duplicados
+    categorias = list(collection.distinct('categoria'))
+    return jsonify(categorias)
