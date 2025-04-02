@@ -3,7 +3,6 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
 from dotenv import load_dotenv
-from flask import Response
 
 # Cargar las variables de entorno desde un archivo .env
 load_dotenv()
@@ -41,20 +40,33 @@ def get_productos():
 @app.route('/categorias')
 def get_categorias():
     try:
-        # Busca todos los productos y extrae solo el campo 'categoria' para evitar duplicados
-        categorias = list(collection.distinct('categoria'))
-        return jsonify(categorias)
+        # Recupera solo el campo 'categoria' de todos los productos
+        productos = list(collection.find({}, {'categoria': 1, '_id': 0}))
+        categorias_set = set()
+        for producto in productos:
+            # 'categoria' se almacena como una lista
+            for cat in producto.get("categoria", []):
+                categorias_set.add(cat)
+        return jsonify(list(categorias_set))
     except Exception as e:
         return jsonify({"error": f"Error al recuperar categorías: {str(e)}"}), 500
 
 @app.route('/modificadores')
 def get_modificadores():
     try:
-        # Si estás almacenando los modificadores en un campo 'modificadores' de cada producto
-        modificadores = list(collection.distinct('modificadores'))
-        return jsonify(modificadores)
+        # Recupera el campo 'modificadores' de todos los productos
+        productos = list(collection.find({}, {'modificadores': 1, '_id': 0}))
+        modificadores_set = set()
+        for producto in productos:
+            for mod in producto.get("modificadores", []):
+                # Si 'mod' es un diccionario, puedes extraer la propiedad que te interese,
+                # por ejemplo, su nombre, o bien convertirlo a string
+                modificadores_set.add(str(mod))
+        return jsonify(list(modificadores_set))
     except Exception as e:
         return jsonify({"error": f"Error al recuperar modificadores: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    # Usa el puerto definido en la variable de entorno PORT o por defecto 10000
+    port = int(os.environ.get("PORT", 10000))
+    app.run(debug=False, host="0.0.0.0", port=port)
