@@ -42,10 +42,15 @@ def sync_all_data():
             if item["type"] == "ITEM":
                 product_name = item["item_data"]["name"]
                 price = None
-                if item["item_data"].get("variations"):
-                    price = item["item_data"]["variations"][0]["item_variation_data"]["price_money"]["amount"] / 100
+                variations = item["item_data"].get("variations", [])
+                if variations:
+                    # Obtenemos los datos de la variación
+                    variation_data = variations[0].get("item_variation_data", {})
+                    # Verificamos si existe "price_money" y que tenga la clave "amount"
+                    if "price_money" in variation_data and "amount" in variation_data["price_money"]:
+                        price = variation_data["price_money"]["amount"] / 100
 
-                # Datos del producto usando get() para evitar KeyError en "category_ids"
+                # Datos del producto, usando get() para claves opcionales
                 product_data = {
                     "nombre": product_name,
                     "categoria": item["item_data"].get("category_ids", []),
