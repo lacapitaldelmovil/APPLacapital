@@ -46,11 +46,14 @@ def obtener_productos_por_categoria(category_id):
     if response.ok:
         data = response.json()
         for obj in data.get("objects", []):
-            items.append({
+            item_data = obj["item_data"]
+            item = {
                 "id": obj["id"],
-                "name": obj["item_data"]["name"],
-                "variations": obj["item_data"].get("variations", []),
-                "image_url": f"https://connect.squareup.com/v2/catalog/images/{obj['item_data'].get('image_id')}" if obj["item_data"].get("image_id") else None
-            })
+                "name": item_data["name"],
+                "variations": item_data.get("variations", []),
+                "image_url": f"https://connect.squareup.com/v2/catalog/images/{item_data.get('image_id')}" if item_data.get("image_id") else None,
+                "modifiers": item_data.get("modifier_list_info", [])
+            }
+            items.append(item)
 
     return jsonify(items)
