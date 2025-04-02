@@ -1,3 +1,29 @@
+import os
+import time
+import requests
+from pymongo import MongoClient
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Variables de entorno
+MONGO_URI = os.environ.get("MONGO_URI")
+DATABASE_NAME = os.environ.get("DATABASE_NAME")
+COLLECTION_NAME = os.environ.get("COLLECTION_NAME")
+SQUARE_ACCESS_TOKEN = os.environ.get("SQUARE_ACCESS_TOKEN")
+LOCATION_ID = os.environ.get("LOCATION_ID")
+
+# Conexión a MongoDB
+client = MongoClient(MONGO_URI)
+db = client[DATABASE_NAME]
+collection = db[COLLECTION_NAME]
+
+# Headers para la API de Square
+headers = {
+    "Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}",
+    "Content-Type": "application/json"
+}
+
 # Función para sincronizar productos, categorías y modificadores
 def sync_all_data():
     url = "https://connect.squareup.com/v2/catalog/list"
@@ -7,26 +33,24 @@ def sync_all_data():
         data = response.json()
         print("Datos recibidos de Square:", data)  # Imprime la respuesta de Square
 
-        # Obtenemos todos los productos de Square
-        square_products = {item["id"]: item for item in data.get("objects", []) if item["type"] == "ITEM"}
+        # Obtiene la lista de productos de Square
+        square_product_names = {item["item_data"]["name"]: item for item in data.get("objects", []) if item["type"] == "ITEM"}
+        square_product_names_set = set(square_product_names.keys())
 
-        # Obtenemos todos los productos de MongoDB
-        mongo_products = list(collection.find({}))
+        # Obtiene los productos de MongoDB
+        mongo_products = collection.find()
+        mongo_product_names = {product["nombre"] for product in mongo_products}
 
-        # Creamos un conjunto de IDs de productos de Square
-        square_product_ids = square_products.keys()
+        # Elimina los productos que ya no existen en Square
+        products_to_delete = mongo_product_names - square_product_names_set
+        if products_to_delete:
+            collection.delete_many({"nombre": {"$in": list(products_to_delete)}})
+            print(f"Productos eliminados de MongoDB: {products_to_delete}")
 
-        # Eliminar productos que ya no existen en Square
-        for mongo_product in mongo_products:
-            if mongo_product.get("square_product_id") not in square_product_ids:
-                print(f"Producto eliminado (no está en Square): {mongo_product['nombre']}")
-                collection.delete_one({"_id": mongo_product["_id"]})
-
-        # Comparar y actualizar o agregar productos
-        for square_product_id, square_product in square_products.items():
-            product_name = square_product["item_data"]["name"]
+        # Sincroniza productos, categorías y modificadores
+        for product_name, item in square_product_names.items():
             price = None
-            variations = square_product["item_data"].get("variations", [])
+            variations = item["item_data"].get("variations", [])
             if variations:
                 # Obtenemos los datos de la variación
                 variation_data = variations[0].get("item_variation_data", {})
@@ -34,37 +58,48 @@ def sync_all_data():
                 if "price_money" in variation_data and "amount" in variation_data["price_money"]:
                     price = variation_data["price_money"]["amount"] / 100
 
-            category_ids = square_product["item_data"].get("category_ids", [])
-            modifiers = square_product["item_data"].get("modifiers", [])
+            # Obtener categorías
+            category_ids = item["item_data"].get("category_ids", [])
+            categories = []
+            if category_ids:
+                # Si hay IDs de categorías, podemos agregar lógica para obtener los nombres
+                for category_id in category_ids:
+                    # Aquí podemos hacer una llamada adicional para obtener más detalles de las categorías si es necesario.
+                    categories.append(category_id)  # Esto solo agrega los IDs, puedes hacer más lógica si deseas obtener los nombres
+
+            # Obtener modificadores
+            modifiers = item["item_data"].get("modifiers", [])
 
             # Datos del producto
             product_data = {
                 "nombre": product_name,
-                "categoria": category_ids,
+                "categoria": categories,  # Ahora tiene los IDs de las categorías
                 "precio": price,
-                "modificadores": modifiers,
-                "square_product_id": square_product_id  # Usamos el ID de Square como identificador único
+                "modificadores": modifiers,  # Aquí tienes los modificadores del producto
             }
 
-            # Buscar si el producto ya existe en MongoDB por el product_id de Square
-            existing_product = collection.find_one({"square_product_id": square_product_id})
-
+            # Verifica si el producto ya existe en MongoDB
+            existing_product = collection.find_one({"nombre": product_name})
             if existing_product:
-                # Si el producto existe, comparamos si hay cambios
-                if (existing_product["precio"] != product_data["precio"] or
-                    existing_product["categoria"] != product_data["categoria"] or
-                    existing_product["modificadores"] != product_data["modificadores"]):
-                    # Si hay cambios, lo actualizamos
-                    collection.update_one(
-                        {"_id": existing_product["_id"]},
-                        {"$set": product_data}
-                    )
-                    print(f"Producto actualizado: {product_name}")
+                # Si el producto existe, actualizamos los datos
+                collection.update_one({"_id": existing_product["_id"]}, {"$set": product_data})
+                print(f"Producto actualizado: {product_name}")
             else:
-                # Si el producto no existe, lo insertamos
+                # Si el producto no existe, insertamos uno nuevo
                 collection.insert_one(product_data)
                 print(f"Producto insertado: {product_name}")
 
         print("Datos sincronizados con éxito.")
     else:
         print(f"Error al sincronizar datos: {response.status_code} {response.text}")
+
+# Función para realizar la sincronización cada hora
+def schedule_sync():
+    while True:
+        sync_all_data()
+        print("Esperando 1 hora antes de la próxima sincronización...")
+        time.sleep(3600)  # Espera 1 hora (3600 segundos)
+
+# Llamada a la función schedule_sync para que empiece a sincronizar
+if __name__ == "__main__":
+    schedule_sync()
