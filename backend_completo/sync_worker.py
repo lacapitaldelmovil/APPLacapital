@@ -1,49 +1,66 @@
 import os
-from flask import Flask
+import time
+import requests
 from pymongo import MongoClient
 from dotenv import load_dotenv
-import requests
 
 load_dotenv()
 
-app = Flask(__name__)
-
+# Variables de entorno
 MONGO_URI = os.environ.get("MONGO_URI")
 DATABASE_NAME = os.environ.get("DATABASE_NAME")
 COLLECTION_NAME = os.environ.get("COLLECTION_NAME")
 SQUARE_ACCESS_TOKEN = os.environ.get("SQUARE_ACCESS_TOKEN")
 LOCATION_ID = os.environ.get("LOCATION_ID")
 
+# Conexión a MongoDB
 client = MongoClient(MONGO_URI)
 db = client[DATABASE_NAME]
 collection = db[COLLECTION_NAME]
 
+# Headers para la API de Square
 headers = {
     "Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}",
     "Content-Type": "application/json"
 }
 
-@app.route("/sync", methods=["GET"])
+# Función para sincronizar productos, categorías y modificadores
 def sync_all_data():
-    url = f"https://connect.squareup.com/v2/catalog/list"
+    url = "https://connect.squareup.com/v2/catalog/list"
     response = requests.get(url, headers=headers)
 
     if response.status_code == 200:
-        items = response.json().get("objects", [])
+        data = response.json()
+        # Limpia la colección de productos en MongoDB
         collection.delete_many({})
-        for item in items:
-            if item["type"] == "ITEM":
-                nombre = item["item_data"]["name"]
-                precio = None
-                if item["item_data"].get("variations"):
-                    precio = item["item_data"]["variations"][0]["item_variation_data"]["price_money"]["amount"] / 100
-                collection.insert_one({
-                    "nombre": nombre,
-                    "precio": precio
-                })
-        return {"status": "success", "message": "Datos sincronizados"}
-    else:
-        return {"status": "error", "message": "Error al sincronizar productos"}, 500
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+        # Sincroniza productos, categorías y modificadores
+        for item in data.get("objects", []):
+            if item["type"] == "ITEM":
+                product_name = item["item_data"]["name"]
+                price = None
+                if item["item_data"].get("variations"):
+                    price = item["item_data"]["variations"][0]["item_variation_data"]["price_money"]["amount"] / 100
+
+                # Guarda el producto en MongoDB
+                collection.insert_one({
+                    "nombre": product_name,
+                    "categoria": item["item_data"]["category_ids"],  # Aquí se pueden guardar las categorías si son relevantes
+                    "precio": price,
+                    "modificadores": item["item_data"].get("modifiers", []),
+                })
+
+        print("Datos sincronizados con éxito.")
+    else:
+        print(f"Error al sincronizar datos: {response.status_code} {response.text}")
+
+# Función para realizar la sincronización cada hora
+def schedule_sync():
+    while True:
+        sync_all_data()
+        print("Esperando 1 hora antes de la próxima sincronización...")
+        time.sleep(3600)  # Espera 1 hora (3600 segundos)
+
+# Llamada a la función schedule_sync para que empiece a sincronizar
+if __name__ == "__main__":
+    schedule_sync()
