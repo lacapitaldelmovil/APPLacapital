@@ -3,7 +3,7 @@ from flask_cors import CORS
 import requests
 
 app = Flask(__name__)
-CORS(app)  # Permite llamadas desde cualquier origen
+CORS(app)
 
 SQUARE_TOKEN = "EAAAl228vlsrjxfRNJikB76WuOOIEb7rwRgLBhOPa9SagIBsKn634talKqyHX0Ic"
 HEADERS = {
@@ -38,7 +38,7 @@ def get_productos(categoria_id):
 
 @app.route("/api/modificadores/<producto_id>")
 def get_modificadores(producto_id):
-    # Obtener el producto completo
+    # Obtener el objeto del producto
     url_obj = f"https://connect.squareup.com/v2/catalog/object/{producto_id}"
     res = requests.get(url_obj, headers=HEADERS)
     item = res.json().get("object", {})
@@ -54,13 +54,12 @@ def get_modificadores(producto_id):
 
     modifiers = []
     for mod in modifiers_data.get("object", {}).get("modifier_list_data", {}).get("modifiers", []):
-        name = mod["modifier_data"]["name"]
-        price_money = mod["modifier_data"].get("price_money", {})
-        amount = price_money.get("amount", 0)
-        price = float(amount) / 100
+        mod_data = mod["modifier_data"]
+        price_cents = mod_data.get("price_money", {}).get("amount", 0)
+        price_euros = price_cents / 100
         modifiers.append({
-            "name": name,
-            "price": price
+            "name": mod_data["name"],
+            "price": price_euros
         })
 
     return jsonify(modifiers)
