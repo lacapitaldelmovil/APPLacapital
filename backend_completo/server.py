@@ -11,7 +11,7 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# Ruta original: categorías generales
+# 🔹 Todas las categorías
 @app.route("/api/categorias")
 def get_categorias():
     url = "https://connect.squareup.com/v2/catalog/list?types=CATEGORY"
@@ -23,7 +23,7 @@ def get_categorias():
     ]
     return jsonify(categorias)
 
-# 🔧 NUEVO: Devuelve solo las marcas principales
+# 🔹 Solo marcas principales (filtradas por nombre)
 @app.route("/api/marcas")
 def get_marcas():
     url = "https://connect.squareup.com/v2/catalog/list?types=CATEGORY"
@@ -36,7 +36,7 @@ def get_marcas():
         for c in marcas
     ])
 
-# 🔧 NUEVO: Devuelve las subcategorías (series) bajo una marca
+# ✅ Subcategorías reales que tienen como padre una marca
 @app.route("/api/subcategorias/<marca_id>")
 def get_subcategorias(marca_id):
     url = "https://connect.squareup.com/v2/catalog/list?types=CATEGORY"
@@ -52,7 +52,7 @@ def get_subcategorias(marca_id):
         for c in subcats
     ])
 
-# 🔧 NUEVO: Devuelve los modelos bajo una subcategoría (productos)
+# 🔹 Modelos bajo subcategoría (productos)
 @app.route("/api/modelos/<subcat_id>")
 def get_modelos(subcat_id):
     url = "https://connect.squareup.com/v2/catalog/search-catalog-items"
@@ -67,7 +67,7 @@ def get_modelos(subcat_id):
     ]
     return jsonify(modelos)
 
-# Compatibilidad: productos por categoría directa
+# 🔹 Productos por categoría (compatibilidad)
 @app.route("/api/productos/<categoria_id>")
 def get_productos(categoria_id):
     url = "https://connect.squareup.com/v2/catalog/search-catalog-items"
@@ -82,7 +82,7 @@ def get_productos(categoria_id):
     ]
     return jsonify(productos)
 
-# Modificadores de un producto
+# 🔹 Modificadores de un producto
 @app.route("/api/modificadores/<producto_id>")
 def get_modificadores(producto_id):
     url_obj = f"https://connect.squareup.com/v2/catalog/object/{producto_id}"
