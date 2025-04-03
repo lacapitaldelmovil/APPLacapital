@@ -63,10 +63,15 @@ def modificadores(producto_id):
             mod_obj_url = f"https://connect.squareup.com/v2/catalog/object/{mod_id}"
             mod_obj_res = requests.get(mod_obj_url, headers=HEADERS)
             mod_obj_data = mod_obj_res.json()
-            mod_obj = mod_obj_data.get("object", {})
+
+            # Verificación segura
+            mod_data_safe = mod_obj_data.get("object", {}).get("modifier_data", {})
+            if not mod_data_safe:
+                continue
+
             mod_info = {
-                "name": mod_obj.get("modifier_data", {}).get("name", ""),
-                "price_money": mod_obj.get("modifier_data", {}).get("price_money", {})
+                "name": mod_data_safe.get("name", ""),
+                "price_money": mod_data_safe.get("price_money", {})
             }
             modifier_list.append(mod_info)
 
